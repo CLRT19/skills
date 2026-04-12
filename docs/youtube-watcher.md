@@ -25,9 +25,12 @@ The user can override this with `--lang XX` or by asking Claude to respond in a 
 
 ## Requirements
 
-- `yt-dlp` must be installed and on PATH
-  - Install via Homebrew: `brew install yt-dlp`
-  - Install via pip: `pip install yt-dlp`
+| Dependency | Version | Install |
+|---|---|---|
+| Python | 3.8+ | Pre-installed on macOS / `brew install python` |
+| `yt-dlp` | latest | `brew install yt-dlp` or `pip install yt-dlp` |
+
+`yt-dlp` must be on your PATH. No additional Python packages are needed — the script uses only the standard library.
 
 ## Files
 
