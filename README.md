@@ -7,6 +7,7 @@ A collection of custom [Claude Code skills](https://docs.anthropic.com/en/docs/c
 | Skill | Description | Docs |
 |---|---|---|
 | [youtube-watcher](youtube-watcher/) | Fetch YouTube video transcripts with auto language detection. Summarize, search, or extract info from videos in any language. Adopted from [michaelgathara/youtube-watcher](https://clawhub.ai/michaelgathara/youtube-watcher). | [docs/youtube-watcher.md](docs/youtube-watcher.md) |
+| [bilibili-watcher](bilibili-watcher/) | Fetch Bilibili (B站) video transcripts via yt-dlp with browser cookie auth (Firefox by default). Handles Bilibili's login-gated subtitles, skips danmaku, and auto-detects language. Inspired by [donnycui/bilibili-youtube-watcher](https://clawhub.ai/donnycui/bilibili-youtube-watcher) and [jiashuoji838-afk/bilibili-watcher](https://clawhub.ai/jiashuoji838-afk/bilibili-watcher). | [docs/bilibili-watcher.md](docs/bilibili-watcher.md) |
 
 ## Repo structure
 
@@ -15,9 +16,15 @@ skills/
   README.md                 # This file — skill index
   docs/                     # Per-skill documentation (not bundled with skill installs)
     youtube-watcher.md
+    bilibili-watcher.md
   youtube-watcher/          # Skill: YouTube transcript fetcher
     SKILL.md                # Skill definition (what Claude reads)
     _meta.json              # Skill metadata
+    scripts/
+      get_transcript.py
+  bilibili-watcher/         # Skill: Bilibili transcript fetcher (cookie-authed)
+    SKILL.md
+    _meta.json
     scripts/
       get_transcript.py
 ```
