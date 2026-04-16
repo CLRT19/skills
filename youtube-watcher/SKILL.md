@@ -22,14 +22,16 @@ Fetch transcripts from YouTube videos to enable summarization, QA, and content e
 
 Retrieve the text transcript of a video. The script auto-detects the video's native language and fetches subtitles in that language.
 
+Run the helper script using a path relative to this skill directory:
+
 ```bash
-python3 {baseDir}/scripts/get_transcript.py "https://www.youtube.com/watch?v=VIDEO_ID"
+python3 scripts/get_transcript.py "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 To override the language (e.g. if the user requests a specific language):
 
 ```bash
-python3 {baseDir}/scripts/get_transcript.py --lang zh "https://www.youtube.com/watch?v=VIDEO_ID"
+python3 scripts/get_transcript.py --lang zh "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 ## Language Rules
@@ -48,7 +50,7 @@ python3 {baseDir}/scripts/get_transcript.py --lang zh "https://www.youtube.com/w
 
 1. Get the transcript:
    ```bash
-   python3 {baseDir}/scripts/get_transcript.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+   python3 scripts/get_transcript.py "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
    ```
 2. Read the `[language: XX]` header from the output.
 3. Summarize in that same language.

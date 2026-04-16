@@ -24,8 +24,10 @@ Fetch transcripts from Bilibili (B站) videos for summarization, QA, and content
 
 Retrieve the text transcript of a Bilibili video. The script auto-detects the subtitle language and reads login cookies from Firefox by default.
 
+Run the helper script using a path relative to this skill directory:
+
 ```bash
-python3 {baseDir}/scripts/get_transcript.py "https://www.bilibili.com/video/BVxxxxxxxxxx"
+python3 scripts/get_transcript.py "https://www.bilibili.com/video/BVxxxxxxxxxx"
 ```
 
 Accepted URL formats:
@@ -37,13 +39,13 @@ Accepted URL formats:
 To override the language (rare — Bilibili is almost always Chinese):
 
 ```bash
-python3 {baseDir}/scripts/get_transcript.py --lang zh "https://www.bilibili.com/video/BVxxxxxxxxxx"
+python3 scripts/get_transcript.py --lang zh "https://www.bilibili.com/video/BVxxxxxxxxxx"
 ```
 
 To use a different browser for cookies (default is `firefox`):
 
 ```bash
-python3 {baseDir}/scripts/get_transcript.py --browser chrome "https://www.bilibili.com/video/BVxxxxxxxxxx"
+python3 scripts/get_transcript.py --browser chrome "https://www.bilibili.com/video/BVxxxxxxxxxx"
 ```
 
 ## Bilibili Login Requirement
@@ -74,7 +76,7 @@ If the video genuinely has no subtitles (Bilibili does not auto-caption every vi
 
 1. Get the transcript:
    ```bash
-   python3 {baseDir}/scripts/get_transcript.py "https://www.bilibili.com/video/BV1g7wJz8Ey4"
+   python3 scripts/get_transcript.py "https://www.bilibili.com/video/BV1g7wJz8Ey4"
    ```
 2. Read the `[language: XX]` header from the output.
 3. Summarize in that same language (almost always Chinese for Bilibili).

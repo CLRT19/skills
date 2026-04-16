@@ -40,7 +40,7 @@ def clean_vtt(content: str) -> str:
     return "\n".join(text_lines)
 
 
-def detect_native_language(url: str) -> str:
+def detect_native_language(url: str, browser: str = None) -> str:
     """
     Detect the video's native/original subtitle language.
     Checks manual subs first, then falls back to auto-generated subs.
@@ -52,6 +52,8 @@ def detect_native_language(url: str) -> str:
         "--skip-download",
         url,
     ]
+    if browser:
+        cmd[1:1] = ["--cookies-from-browser", browser]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         output = result.stdout + result.stderr
@@ -66,6 +68,7 @@ def detect_native_language(url: str) -> str:
     auto_section = False
     manual_langs = []
     auto_langs = []
+    auto_orig_langs = []
 
     for line in output.splitlines():
         if "Available subtitles" in line and "automatic" not in line.lower():
@@ -85,6 +88,9 @@ def detect_native_language(url: str) -> str:
             match = re.match(r"^([a-zA-Z]{2,}(?:-[a-zA-Z]+)*)\s+", stripped)
             if match:
                 lang = match.group(1)
+                if auto_section and lang.endswith("-orig"):
+                    auto_orig_langs.append(lang)
+                    continue
                 # Skip translated auto-captions (e.g. "en-zh", "ja-zh")
                 if "-" in lang and auto_section:
                     continue
@@ -96,16 +102,18 @@ def detect_native_language(url: str) -> str:
     # Prefer manual subs, then native auto-subs
     if manual_langs:
         return manual_langs[0]
+    if auto_orig_langs:
+        return auto_orig_langs[0]
     if auto_langs:
         return auto_langs[0]
 
     return "en"  # fallback
 
 
-def get_transcript(url: str, lang: str = None):
+def get_transcript(url: str, lang: str = None, browser: str = None):
     # Detect native language if not specified
     if not lang:
-        lang = detect_native_language(url)
+        lang = detect_native_language(url, browser)
 
     print(f"[language: {lang}]")
 
@@ -121,6 +129,8 @@ def get_transcript(url: str, lang: str = None):
             "subs",
             url,
         ]
+        if browser:
+            cmd[1:1] = ["--cookies-from-browser", browser]
 
         try:
             subprocess.run(cmd, cwd=temp_dir, check=True, capture_output=True)
@@ -153,9 +163,14 @@ def main():
         default=None,
         help="Subtitle language code (e.g. en, zh, ja). Auto-detected if omitted.",
     )
+    parser.add_argument(
+        "--browser",
+        default=None,
+        help="Optional browser to read cookies from (e.g. firefox, chrome).",
+    )
     args = parser.parse_args()
 
-    get_transcript(args.url, args.lang)
+    get_transcript(args.url, args.lang, args.browser)
 
 
 if __name__ == "__main__":
