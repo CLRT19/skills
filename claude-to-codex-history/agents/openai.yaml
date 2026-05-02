@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude to Codex History"
+  short_description: "Convert Claude Code sessions into Codex handoffs."
+  default_prompt: "Convert a Claude Code session history into a Codex-ready handoff."
