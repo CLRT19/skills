@@ -116,6 +116,20 @@ def parse_args() -> argparse.Namespace:
         help="Thread name for the installed Codex resume entry.",
     )
     parser.add_argument(
+        "--install-context-chars",
+        type=int,
+        default=120000,
+        help=(
+            "Max handoff chars embedded into the installed Codex session. "
+            "The full handoff is still written as a sidecar Markdown file. Default: 120000."
+        ),
+    )
+    parser.add_argument(
+        "--install-full-context",
+        action="store_true",
+        help="Embed the full handoff in the installed Codex session. Can exceed Codex context limits.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="For --install-codex-session, print planned paths without writing.",
@@ -569,6 +583,71 @@ def codex_timestamp(dt: datetime | None = None) -> str:
     return (dt or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def render_source_summary(metas: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for meta in metas:
+        lines.append(f"- `{meta.get('session_id')}`: `{meta.get('path')}`")
+        if meta.get("first_timestamp") or meta.get("last_timestamp"):
+            lines.append(
+                f"  - time: {meta.get('first_timestamp','?')} to {meta.get('last_timestamp','?')}"
+            )
+        if meta.get("cwd"):
+            lines.append(f"  - cwd: `{meta['cwd']}`")
+        if meta.get("git_branch"):
+            lines.append(f"  - git branch: `{meta['git_branch']}`")
+    return "\n".join(lines)
+
+
+def compact_handoff_for_resume(
+    full_handoff: str,
+    metas: list[dict[str, Any]],
+    full_handoff_path: Path,
+    max_chars: int,
+    force_full: bool,
+) -> tuple[str, str]:
+    if force_full or len(full_handoff) <= max_chars:
+        return full_handoff, "full"
+
+    if max_chars < 4000:
+        raise SystemExit("--install-context-chars must be at least 4000")
+
+    cwd = next((m.get("cwd") for m in metas if m.get("cwd")), "")
+    header = [
+        "# Imported Claude Code History",
+        "",
+        "This Codex resume session contains a bounded recent-context slice so it can fit in",
+        "Codex's model context window. The full Claude Code handoff is stored on disk.",
+        "",
+        f"Full handoff path: `{full_handoff_path}`",
+    ]
+    if cwd:
+        header.append(f"Suggested Codex cwd: `{cwd}`")
+    header.extend(
+        [
+            "",
+            "Use `rg`, `sed`, or another local file reader on the full handoff path when older",
+            "details are needed.",
+            "",
+            "## Source Sessions",
+            "",
+            render_source_summary(metas),
+            "",
+            "## Recent Transcript Tail",
+            "",
+        ]
+    )
+    prefix = "\n".join(header)
+    budget = max_chars - len(prefix) - 200
+    if budget < 1000:
+        raise SystemExit("--install-context-chars is too small for source metadata")
+    tail = full_handoff[-budget:]
+    boundary = tail.find("\n### ")
+    if boundary > 0:
+        tail = tail[boundary + 1 :]
+    compact = prefix + tail.rstrip() + "\n"
+    return compact, "compact"
+
+
 def build_resume_jsonl(session_id: str, cwd: str, handoff: str, thread_name: str) -> str:
     now = codex_timestamp()
     records = [
@@ -579,9 +658,9 @@ def build_resume_jsonl(session_id: str, cwd: str, handoff: str, thread_name: str
                 "id": session_id,
                 "timestamp": now,
                 "cwd": cwd,
-                "originator": "claude-to-codex-history",
+                "originator": "codex-tui",
                 "cli_version": "converted",
-                "source": "converted-claude-code",
+                "source": "cli",
                 "model_provider": "openai",
             },
         },
@@ -650,6 +729,8 @@ def install_codex_session(
     codex_root: Path,
     thread_name: str | None,
     resume_cwd: str | None,
+    install_context_chars: int,
+    install_full_context: bool,
     dry_run: bool,
     force: bool,
 ) -> dict[str, str]:
@@ -661,7 +742,16 @@ def install_codex_session(
     filename = f"rollout-{now_local.strftime('%Y-%m-%dT%H-%M-%S')}-{cid}.jsonl"
     session_path = day_dir / filename
     index_path = codex_root.expanduser() / "session_index.jsonl"
+    sidecar_dir = codex_root.expanduser() / "claude_imports"
+    full_handoff_path = sidecar_dir / f"{cid}.md"
     backup_path = index_path.with_name(index_path.name + f".bak-{now_local.strftime('%Y%m%dT%H%M%S')}")
+    resume_handoff, context_mode = compact_handoff_for_resume(
+        handoff,
+        metas,
+        full_handoff_path,
+        install_context_chars,
+        install_full_context,
+    )
     if session_path.exists() and not force:
         raise SystemExit(f"Refusing to overwrite existing session file: {session_path} (use --force)")
     if index_contains(index_path, cid) and not force:
@@ -672,11 +762,17 @@ def install_codex_session(
             "session_path": str(session_path),
             "index_path": str(index_path),
             "backup_path": str(backup_path),
+            "full_handoff_path": str(full_handoff_path),
             "thread_name": name,
+            "context_mode": context_mode,
+            "full_handoff_chars": str(len(handoff)),
+            "installed_context_chars": str(len(resume_handoff)),
             "dry_run": "true",
         }
     day_dir.mkdir(parents=True, exist_ok=True)
-    session_path.write_text(build_resume_jsonl(cid, cwd, handoff, name), encoding="utf-8")
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    full_handoff_path.write_text(handoff, encoding="utf-8")
+    session_path.write_text(build_resume_jsonl(cid, cwd, resume_handoff, name), encoding="utf-8")
     if index_path.exists():
         shutil.copy2(index_path, backup_path)
     with index_path.open("a", encoding="utf-8") as f:
@@ -696,7 +792,11 @@ def install_codex_session(
         "session_path": str(session_path),
         "index_path": str(index_path),
         "backup_path": str(backup_path) if index_path.exists() else "",
+        "full_handoff_path": str(full_handoff_path),
         "thread_name": name,
+        "context_mode": context_mode,
+        "full_handoff_chars": str(len(handoff)),
+        "installed_context_chars": str(len(resume_handoff)),
         "dry_run": "false",
     }
 
@@ -740,6 +840,8 @@ def main() -> int:
             Path(args.codex_root),
             args.thread_name,
             args.resume_cwd,
+            args.install_context_chars,
+            args.install_full_context,
             args.dry_run,
             args.force,
         )

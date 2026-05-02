@@ -8,7 +8,7 @@ A collection of custom coding-agent skills for extending Claude Code, Codex, and
 |---|---|---|
 | [youtube-watcher](youtube-watcher/) | Fetch YouTube video transcripts with auto language detection. Summarize, search, or extract info from videos in any language. Adopted from [michaelgathara/youtube-watcher](https://clawhub.ai/michaelgathara/youtube-watcher). | [docs/youtube-watcher.md](docs/youtube-watcher.md) |
 | [bilibili-watcher](bilibili-watcher/) | Fetch Bilibili (B站) video transcripts via yt-dlp with browser cookie auth (Firefox by default). Handles Bilibili's login-gated subtitles, skips danmaku, and auto-detects language. Inspired by [donnycui/bilibili-youtube-watcher](https://clawhub.ai/donnycui/bilibili-youtube-watcher) and [jiashuoji838-afk/bilibili-watcher](https://clawhub.ai/jiashuoji838-afk/bilibili-watcher). | [docs/bilibili-watcher.md](docs/bilibili-watcher.md) |
-| [claude-to-codex-history](claude-to-codex-history/) | Convert Claude Code JSONL session history into Codex continuation artifacts, including a same-directory workflow that installs an imported session visible through `codex resume`. | [docs/claude-to-codex-history.md](docs/claude-to-codex-history.md) |
+| [claude-to-codex-history](claude-to-codex-history/) | Convert Claude Code JSONL session history into Codex continuation artifacts, including a same-directory workflow that installs a compact imported session visible through `codex resume` and stores the full handoff as a sidecar file. | [docs/claude-to-codex-history.md](docs/claude-to-codex-history.md) |
 
 ## Repo structure
 
@@ -67,7 +67,7 @@ Expected workflow:
 3. Start Codex from that same project directory.
 4. Ask Codex to use `claude-to-codex-history` on the session name or ID.
 5. Codex runs the converter with `--same-directory --install-codex-session`.
-6. Codex prints a thread name and exact `codex resume <session-id>` command.
+6. Codex prints a thread name, full handoff path, and exact `codex resume <session-id>` command.
 7. Exit the current Codex chat.
 8. Run `codex resume`, select the imported thread, or run the exact command.
 
@@ -83,6 +83,8 @@ python3 ~/.codex/skills/claude-to-codex-history/scripts/claude_to_codex_history.
   --install-codex-session \
   --thread-name "Imported Claude: $SHORT_NAME"
 ```
+
+The installed resume session contains bounded recent context so Codex can replay it without exceeding the model context window. The full Markdown handoff is printed as `full_handoff_path` and stored under `~/.codex/claude_imports/`.
 
 ## Adding a new skill
 
