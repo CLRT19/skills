@@ -43,6 +43,18 @@ def parse_args() -> argparse.Namespace:
         help="Restrict search to project path substring or Claude project directory name.",
     )
     parser.add_argument(
+        "--same-directory",
+        action="store_true",
+        help=(
+            "Same-directory workflow: restrict Claude search to the current working "
+            "directory and set the installed Codex session cwd to it."
+        ),
+    )
+    parser.add_argument(
+        "--resume-cwd",
+        help="Cwd to embed in an installed Codex session. Default: Claude session cwd.",
+    )
+    parser.add_argument(
         "--latest",
         action="store_true",
         help="Use the latest Claude project JSONL when no session/query is supplied.",
@@ -637,11 +649,12 @@ def install_codex_session(
     session_id: str | None,
     codex_root: Path,
     thread_name: str | None,
+    resume_cwd: str | None,
     dry_run: bool,
     force: bool,
 ) -> dict[str, str]:
     cid = session_id or str(uuid.uuid4())
-    cwd = next((m.get("cwd") for m in metas if m.get("cwd")), os.getcwd())
+    cwd = resume_cwd or next((m.get("cwd") for m in metas if m.get("cwd")), os.getcwd())
     name = thread_name or f"Imported Claude: {Path(str(metas[-1].get('path', 'session'))).stem}"
     now_local = datetime.now().astimezone()
     day_dir = codex_root.expanduser() / "sessions" / now_local.strftime("%Y") / now_local.strftime("%m") / now_local.strftime("%d")
@@ -700,6 +713,9 @@ def write_output(text: str, output: str | None) -> None:
 
 def main() -> int:
     args = parse_args()
+    if args.same_directory:
+        args.project = args.project or os.getcwd()
+        args.resume_cwd = args.resume_cwd or os.getcwd()
     if args.entire:
         args.include_predecessors = True
         args.full_tools = True
@@ -723,6 +739,7 @@ def main() -> int:
             args.codex_session_id,
             Path(args.codex_root),
             args.thread_name,
+            args.resume_cwd,
             args.dry_run,
             args.force,
         )

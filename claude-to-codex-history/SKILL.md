@@ -5,59 +5,125 @@ description: Convert Claude Code session history into Codex-ready continuation a
 
 # Claude To Codex History
 
-Convert Claude Code JSONL sessions into artifacts Codex can use without relying on fragile internal state mutation.
+Convert Claude Code JSONL sessions into artifacts Codex can use, including an optional installed Codex resume entry.
 
 ## Default Workflow
 
-1. Locate the Claude session with `scripts/claude_to_codex_history.py <query> --list`.
-2. Export a stable Markdown handoff with `--entire -o <handoff.md>` when the user wants full continuity across compacted sessions.
-3. Start or continue Codex with the generated handoff as prompt/context.
-4. Only generate native Codex rollout JSONL when explicitly requested; treat it as archival or experimental unless the user asks to install it into `~/.codex/sessions`.
+1. If the user wants `codex resume`, use **Same-Directory Resume Workflow**.
+2. If the user only wants a portable artifact, export Markdown with `--include-predecessors -o <handoff.md>`.
+3. If the user asks for raw machine-readable data, export `messages-jsonl`.
+4. Only export standalone `codex-jsonl` when explicitly requested; it is archival unless installed into Codex.
 
-## Commands
+## Target Human Workflow
+
+Support this end-to-end flow:
+
+1. User works in Claude Code inside a project directory.
+2. User exits Claude Code and keeps either the Claude session ID or renamed session title.
+3. User starts Codex from that same project directory.
+4. User asks Codex to use this skill on the Claude session name or ID.
+5. Codex converts the Claude session and installs a synthetic Codex resume session.
+6. Codex reports the exact `codex resume <session-id>` command and thread name.
+7. User exits the current Codex chat.
+8. User runs `codex resume`, selects the imported thread, or runs the exact command.
+
+## Same-Directory Resume Workflow
+
+Use this when the user says they exited Claude Code in a directory, started Codex in that same directory, and wants to convert a Claude session name or ID so they can later use `codex resume`.
+
+Always run from the project directory. Preview candidates first:
+
+```bash
+SESSION_NAME_OR_ID="put-session-name-or-id-here"
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --same-directory --list
+```
+
+If the match is clear, dry-run the install:
+
+```bash
+SESSION_NAME_OR_ID="put-session-name-or-id-here"
+SHORT_NAME="put-short-readable-name-here"
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" \
+  --same-directory \
+  --include-predecessors \
+  --tool-output-chars 4000 \
+  --install-codex-session \
+  --thread-name "Imported Claude: $SHORT_NAME" \
+  --dry-run
+```
+
+Then install the resumable Codex session:
+
+```bash
+SESSION_NAME_OR_ID="put-session-name-or-id-here"
+SHORT_NAME="put-short-readable-name-here"
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" \
+  --same-directory \
+  --include-predecessors \
+  --tool-output-chars 4000 \
+  --install-codex-session \
+  --thread-name "Imported Claude: $SHORT_NAME"
+```
+
+Report the printed command to the user:
+
+```bash
+codex resume <printed-session-id>
+```
+
+Also report the thread name so the user can find the imported session in the resume picker.
+
+After this, the user can exit the current Codex chat, run `codex resume`, find the imported thread, or run the exact `codex resume <id>` command.
+
+## What Installation Does
+
+`--install-codex-session` writes a synthetic Codex session containing the Markdown handoff as the first user message. It appends a row to `~/.codex/session_index.jsonl` and creates a timestamped backup of that index first. It does not modify Codex SQLite state.
+
+This is intentionally a high-compatibility mimic: Codex sees a normal session with imported context, rather than thousands of fake tool events.
+
+## Other Commands
 
 List matching Claude sessions:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --list
-python3 scripts/claude_to_codex_history.py 784518f9-b1d6-4769-8b65-78ef7c3ac968 --list
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --list
 ```
 
 Create a full handoff from a renamed session, following compact-summary transcript references:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --entire -o /tmp/della-handoff.md
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --include-predecessors -o /tmp/claude-handoff.md
 ```
 
 Create normalized machine-readable messages:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --entire --format messages-jsonl -o /tmp/della.messages.jsonl
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --include-predecessors --format messages-jsonl -o /tmp/claude.messages.jsonl
 ```
 
 Create a best-effort Codex rollout JSONL:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --entire --format codex-jsonl -o /tmp/della.codex.jsonl
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --include-predecessors --format codex-jsonl -o /tmp/claude.codex.jsonl
 ```
 
 Install a best-effort native Codex resume entry:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --entire --install-codex-session --thread-name "Imported Claude: della"
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --same-directory --include-predecessors --install-codex-session --thread-name "Imported Claude: $SHORT_NAME"
 codex resume <printed-session-id>
 ```
 
 Preview the native install without writing:
 
 ```bash
-python3 scripts/claude_to_codex_history.py della --entire --install-codex-session --dry-run
+python3 scripts/claude_to_codex_history.py "$SESSION_NAME_OR_ID" --same-directory --include-predecessors --install-codex-session --dry-run
 ```
 
 Continue in Codex using the stable handoff:
 
 ```bash
-codex -C /path/to/workspace "$(cat /tmp/della-handoff.md)"
+codex -C /path/to/workspace "$(cat /tmp/claude-handoff.md)"
 ```
 
 ## Format Choice
